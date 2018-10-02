@@ -21,28 +21,29 @@ const userSchema = new mongoose.Schema({
 	}
 });
 
-const User = mongoose.model("User", userSchema);
+userSchema.pre("save", function(next){
 
-userSchema.pre("save", async function(next){
-	try{
-		if(!this.isModified("password")){
-			return next();
-		}
-		let hashedPassword = await bcrypt.hash(this.password, 10);
-		this.password = hashedPassword;
-		return next();
-	}catch(err){
-		return next(err);
-	}
+  let user = this;//this is how i access userSchema object
+
+  try{
+    //i shall only hash the password if it has been modified or is new. So in the below if there was already a password and isModified != true, then move on with next() 
+    if(!user.isModified("password")) return next();
+    //and for new password
+    if(user.password){
+      bcrypt.genSalt(10, function(err, salt) {
+        bcrypt.hash(user.password, salt, function(err, hash) {
+          // Store hash in your password DB.
+          user.password = hash;
+          return next();
+        });
+      });
+    }
+  }catch(err){
+    return next(err);
+  }
+
 });
 
-userSchema.method.comparePassword = async function(candidatePassword, next){
-	try{
-		let isMatch = await bcrypt.compare(candidatePassword, this.password);
-		return isMatch;
-	}catch(err){
-		return next(err);
-	}
-}
+const User = mongoose.model("User", userSchema);
 
 module.exports = User;
